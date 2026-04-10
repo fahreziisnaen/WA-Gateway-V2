@@ -1,0 +1,74 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WhatsApp Gateway — Docker Compose
+# Usage:
+#   cp .env.example .env   # edit API_KEY and VITE_API_KEY
+#   docker-compose up -d --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wa_net
+
+  # ── Backend (Node.js + Baileys) ───────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      # Persist WhatsApp session so you don't need to re-scan QR after restart
+      - ./sessions:/app/sessions
+      # Persist message logs
+      - ./logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - wa_net
+
+  # ── Frontend (React + nginx) ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Bake the API key into the frontend bundle at build time
+        VITE_API_KEY: ${VITE_API_KEY:-}
+    restart: always
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    networks:
+      - wa_net
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  redis_data:
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  wa_net:
+    driver: bridge
