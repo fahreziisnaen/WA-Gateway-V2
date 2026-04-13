@@ -193,11 +193,6 @@ export async function initManager(io) {
   ioInstance = io;
   const persisted = await loadPersistedInstances();
 
-  // Always ensure at least one default instance exists
-  if (persisted.length === 0) {
-    persisted.push({ id: 'wa1', name: 'WhatsApp 1' });
-  }
-
   for (const { id, name } of persisted) {
     instances.set(id, {
       id, name,
