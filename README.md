@@ -331,3 +331,9 @@ WhatsApp session credentials are stored separately in `sessions/<id>/` and persi
 ## License
 
 MIT
+
+---
+
+## Credits
+
+Built by **Fahrezi Isnaen Fauzan** with the assistance of [Claude](https://claude.ai) by Anthropic.
