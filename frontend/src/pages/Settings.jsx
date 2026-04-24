@@ -541,14 +541,9 @@ function GroupAliasesTab() {
       {flash && <Flash flash={flash} />}
 
       {/* Info */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
-        <p className="font-semibold mb-1">What is a Group Alias?</p>
-        <p className="text-xs text-blue-600">
-          Aliases allow clients to send messages to WhatsApp groups using a short name
-          (e.g. <code className="bg-blue-100 px-1 rounded font-mono">alert-it</code>) without
-          needing to know the long Group ID (<code className="bg-blue-100 px-1 rounded font-mono">120363...@g.us</code>).
-          Use the alias name as the <code className="bg-blue-100 px-1 rounded font-mono">id</code> field value when POSTing to{' '}
-          <code className="bg-blue-100 px-1 rounded font-mono">/send-message</code>.
+      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-blue-700">
+        <p className="text-sm">
+          Aliases provide short names for group IDs. Check the <a href="/docs" className="font-semibold underline">Docs</a> for usage examples.
         </p>
       </div>
 
@@ -739,14 +734,9 @@ function AllowedIpsTab() {
       {flash && <Flash flash={flash} />}
 
       {/* Info */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
-        <p className="font-semibold mb-1">IP Whitelist — Access Without API Key</p>
-        <p className="text-xs text-blue-600 leading-relaxed">
-          Requests from whitelisted IPs are automatically allowed <strong>without an API key</strong>.
-          Ideal for systems like <strong>PRTG</strong> that cannot send custom headers.
-          Supported formats: single IP (<code className="bg-blue-100 px-1 rounded font-mono">192.168.1.100</code>),
-          CIDR (<code className="bg-blue-100 px-1 rounded font-mono">10.0.0.0/24</code>),
-          or wildcard (<code className="bg-blue-100 px-1 rounded font-mono">172.16.*.*</code>).
+      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-blue-700">
+        <p className="text-sm">
+          Requests from whitelisted IPs bypass API key authentication. Check the <a href="/docs" className="font-semibold underline">Docs</a> for integration details.
         </p>
       </div>
 

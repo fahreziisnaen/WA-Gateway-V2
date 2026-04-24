@@ -11,6 +11,7 @@ import {
   WifiOff,
   Menu,
   LogOut,
+  BookOpen,
 } from 'lucide-react';
 import StatusBadge from './StatusBadge.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -20,6 +21,7 @@ const NAV = [
   { path: '/instances', label: 'Instances', Icon: Smartphone },
   { path: '/groups', label: 'Groups', Icon: Users },
   { path: '/logs', label: 'Logs', Icon: ScrollText },
+  { path: '/docs', label: 'Docs', Icon: BookOpen },
   { path: '/settings', label: 'Settings', Icon: Settings },
 ];
 

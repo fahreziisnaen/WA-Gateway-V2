@@ -134,9 +134,7 @@ export default function Groups() {
       <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-2.5">
         <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
         <p className="text-sm text-blue-700">
-          Copy the Group ID or click <strong>Set Alias</strong> to create a short name that can be used
-          as the <code className="bg-blue-100 px-1 rounded text-xs">id</code> field in{' '}
-          <code className="bg-blue-100 px-1 rounded text-xs">POST /send-message</code>.
+          Copy the Group ID or click <strong>Set Alias</strong> to create a short name. Check the <a href="/docs" className="font-semibold underline">Docs</a> for API usage examples.
         </p>
       </div>
 
