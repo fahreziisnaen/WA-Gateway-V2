@@ -61,7 +61,8 @@ services:
     image: coleifer/sqlite-web
     restart: always
     ports:
-      - "3002:8080"
+      # Bind to localhost only — database browser must not be publicly exposed
+      - "127.0.0.1:3002:8080"
     volumes:
       - db_data:/data
     environment:
@@ -70,6 +71,12 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     networks:
       - wa-network
 
@@ -88,6 +95,12 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     networks:
       - wa-network
 

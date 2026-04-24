@@ -3,8 +3,8 @@ import { randomBytes } from 'crypto';
 import db from './db.js';
 
 function safe(user) {
-  const { password, created_at, ...rest } = user;
-  return { ...rest, createdAt: created_at };
+  const { password, created_at, must_change_password, ...rest } = user;
+  return { ...rest, createdAt: created_at, mustChangePassword: must_change_password === 1 };
 }
 
 export function getAllUsers() {
@@ -39,7 +39,7 @@ export async function createUser(username, password) {
 
 export async function changePassword(id, newPassword) {
   const hashed = await bcrypt.hash(newPassword, 10);
-  const result = db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, id);
+  const result = db.prepare('UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?').run(hashed, id);
   if (result.changes === 0) throw new Error('User not found');
 }
 

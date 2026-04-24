@@ -44,10 +44,12 @@ export const fetchInstanceQR = (id) => api.get(`/instances/${id}/qr`);
 export const fetchInstanceGroups = (id) => api.get(`/instances/${id}/groups`);
 
 // ── Other dashboard endpoints ─────────────────────────────────────────────────
-export const fetchLogs = ({ limit = 2000, from, to } = {}) => {
+export const fetchLogs = ({ limit = 100, from, to, cursor, status } = {}) => {
   const params = new URLSearchParams({ limit });
-  if (from) params.set('from', from);
-  if (to)   params.set('to', to);
+  if (from)   params.set('from', from);
+  if (to)     params.set('to', to);
+  if (cursor) params.set('cursor', cursor);
+  if (status && status !== 'all') params.set('status', status);
   return api.get(`/logs?${params}`);
 };
 

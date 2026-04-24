@@ -1,9 +1,10 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'wa-gateway-default-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!process.env.JWT_SECRET) {
-  console.warn('[jwt] WARNING: JWT_SECRET is not set. Using default secret — set it in .env before deploying.');
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  console.error('[jwt] FATAL: JWT_SECRET must be at least 32 characters. Generate with: openssl rand -hex 32');
+  process.exit(1);
 }
 
 /**

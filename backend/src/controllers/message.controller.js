@@ -1,4 +1,5 @@
 import { normalizeId } from '../utils/idNormalizer.js';
+import { getSourceIp } from '../utils/request.utils.js';
 import { validateNumber, getFirstConnectedInstance, getInstance, getRecipientName } from '../services/waManager.js';
 import { resolveAlias } from '../services/groupAlias.service.js';
 import { enqueueMessage } from '../services/queue.service.js';
@@ -14,11 +15,7 @@ import { addLog } from '../services/log.service.js';
  * from the Logs page without needing to check server logs.
  */
 export async function sendMessageController(req, res) {
-  // Extract source IP early — needed for every log entry including early failures
-  const sourceIp =
-    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-    req.socket?.remoteAddress ||
-    'unknown';
+  const sourceIp = getSourceIp(req);
 
   const { message, id, from } = req.body;
 

@@ -55,7 +55,7 @@ try {
       await sendMessage(instanceId, jid, message);
       await addLog({ instanceId, instancePhone, id: originalId, recipientName, message, status: 'success', error: null, sourceIp });
     },
-    { connection, concurrency: 5 }
+    { connection, concurrency: parseInt(process.env.QUEUE_CONCURRENCY || '2', 10) }
   );
 
   worker.on('failed', async (job, err) => {

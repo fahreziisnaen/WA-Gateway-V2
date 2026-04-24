@@ -18,42 +18,67 @@ export function addLog({ instanceId = null, instancePhone = null, id, recipientN
   return { timestamp, sourceIp, instanceId, instancePhone, id, recipientName, message, status, error: error ?? null };
 }
 
-export function getLogs({ limit = 2000, from = null, to = null } = {}) {
-  const conditions = [];
-  const params = [];
+export function getLogs({ limit = 100, from = null, to = null, cursor = null, status = null } = {}) {
+  const dateConditions = [];
+  const dateParams = [];
 
   if (from) {
-    conditions.push('timestamp >= ?');
-    params.push(new Date(from).toISOString());
+    dateConditions.push('timestamp >= ?');
+    dateParams.push(new Date(from).toISOString());
   }
   if (to) {
     const toDate = new Date(to);
     toDate.setUTCHours(23, 59, 59, 999);
-    conditions.push('timestamp <= ?');
-    params.push(toDate.toISOString());
+    dateConditions.push('timestamp <= ?');
+    dateParams.push(toDate.toISOString());
   }
 
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
+  // Stats always cover the full date range (no status or cursor filter)
+  const statsWhere = dateConditions.length ? `WHERE ${dateConditions.join(' AND ')}` : '';
   const stats = db.prepare(`
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
       SUM(CASE WHEN status = 'failed'  THEN 1 ELSE 0 END) as failed
-    FROM message_logs ${where}
-  `).get(...params);
+    FROM message_logs ${statsWhere}
+  `).get(...dateParams);
 
-  const logs = db.prepare(`
-    SELECT timestamp, source_ip as sourceIp, instance_id as instanceId,
+  // Build log query conditions (date + status + cursor)
+  const conditions = [...dateConditions];
+  const params = [...dateParams];
+
+  if (status) {
+    conditions.push('status = ?');
+    params.push(status);
+  }
+  if (cursor) {
+    conditions.push('id < ?');
+    params.push(parseInt(cursor, 10));
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const capped = Math.min(limit, 500);
+
+  const rows = db.prepare(`
+    SELECT id as rowId, timestamp, source_ip as sourceIp, instance_id as instanceId,
            instance_phone as instancePhone, recipient_id as id,
            recipient_name as recipientName, message, status, error
     FROM message_logs ${where}
-    ORDER BY timestamp DESC
+    ORDER BY id DESC
     LIMIT ?
-  `).all(...params, limit);
+  `).all(...params, capped + 1);
+
+  const hasMore = rows.length > capped;
+  if (hasMore) rows.pop();
+  const nextCursor = hasMore ? String(rows[rows.length - 1].rowId) : null;
+
+  // Strip internal rowId cursor field from results
+  const logs = rows.map(({ rowId, ...rest }) => rest);
 
   return {
     logs,
+    hasMore,
+    nextCursor,
     stats: { total: stats.total ?? 0, success: stats.success ?? 0, failed: stats.failed ?? 0 },
   };
 }

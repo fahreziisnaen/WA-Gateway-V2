@@ -1,6 +1,7 @@
 import { isValidKey } from '../services/apikey.service.js';
 import { isIpAllowed } from '../services/allowedIp.service.js';
 import { addLog } from '../services/log.service.js';
+import { getSourceIp } from '../utils/request.utils.js';
 
 /**
  * API key middleware for external integrations (SolarWinds, PRTG, etc).
@@ -14,10 +15,7 @@ import { addLog } from '../services/log.service.js';
  * All authentication failures are recorded in the message log.
  */
 export async function authMiddleware(req, res, next) {
-  const sourceIp =
-    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-    req.socket?.remoteAddress ||
-    'unknown';
+  const sourceIp = getSourceIp(req);
 
   // ── 1. IP whitelist bypass ────────────────────────────────────────────────
   try {

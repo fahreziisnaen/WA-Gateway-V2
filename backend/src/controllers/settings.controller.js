@@ -71,10 +71,9 @@ export async function deleteUserController(req, res) {
 export async function getKeysController(req, res) {
   try {
     const keys = await getAllKeys();
-    // Mask key value in list view
-    const masked = keys.map(({ key, ...rest }) => ({
+    const masked = keys.map(({ key_prefix, ...rest }) => ({
       ...rest,
-      keyMasked: maskKey(key),
+      keyMasked: maskKey(key_prefix),
     }));
     return res.json(masked);
   } catch (err) {

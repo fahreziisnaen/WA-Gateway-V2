@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ScrollText, RefreshCw, CheckCircle2, XCircle, Clock,
   BarChart3, Smartphone, Globe, Users, Phone,
-  ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
+  ChevronDown, ChevronUp,
   CalendarDays, X,
 } from 'lucide-react';
 import { fetchLogs } from '../services/api.js';
 
 const AUTO_REFRESH_MS = 15_000;
-const PAGE_SIZE = 50;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -33,31 +32,60 @@ function daysAgoStr(n) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Logs() {
-  const [logs, setLogs]           = useState([]);
-  const [stats, setStats]         = useState({ total: 0, success: 0, failed: 0 });
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
-  const [expanded, setExpanded]   = useState(null);
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'success' | 'failed'
-  const [dateFrom, setDateFrom]   = useState('');
-  const [dateTo, setDateTo]       = useState('');
-  const [page, setPage]           = useState(1);
+  const [logs, setLogs]               = useState([]);
+  const [stats, setStats]             = useState({ total: 0, success: 0, failed: 0 });
+  const [loading, setLoading]         = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError]             = useState(null);
+  const [expanded, setExpanded]       = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFrom, setDateFrom]       = useState('');
+  const [dateTo, setDateTo]           = useState('');
+  const [cursor, setCursor]           = useState(null);
+  const [hasMore, setHasMore]         = useState(false);
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setExpanded(null);
     try {
-      const res = await fetchLogs({ from: dateFrom || undefined, to: dateTo || undefined });
-      setLogs(res.data.logs);
-      setStats(res.data.stats);
-      setPage(1);
-      setExpanded(null);
+      const res = await fetchLogs({
+        from: dateFrom || undefined,
+        to: dateTo || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+      });
+      const { logs: newLogs, hasMore: more, nextCursor: nc, stats: newStats } = res.data;
+      setLogs(newLogs);
+      setStats(newStats);
+      setHasMore(more);
+      setCursor(nc);
     } catch (err) {
       setError(err.response?.data?.error ?? 'Failed to load logs.');
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, statusFilter]);
+
+  const loadMore = useCallback(async () => {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetchLogs({
+        from: dateFrom || undefined,
+        to: dateTo || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        cursor,
+      });
+      const { logs: moreLogs, hasMore: more, nextCursor: nc } = res.data;
+      setLogs((prev) => [...prev, ...moreLogs]);
+      setHasMore(more);
+      setCursor(nc);
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'Failed to load more logs.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [cursor, dateFrom, dateTo, statusFilter, loadingMore]);
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
   useEffect(() => {
@@ -65,40 +93,23 @@ export default function Logs() {
     return () => clearInterval(timer);
   }, [loadLogs]);
 
-  // Client-side status filter
-  const filteredLogs = useMemo(() =>
-    statusFilter === 'all' ? logs : logs.filter((l) => l.status === statusFilter),
-    [logs, statusFilter],
-  );
-
-  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
-  const pagedLogs  = filteredLogs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
   const successRate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
   const hasDateFilter = dateFrom || dateTo;
 
   function toggleStatus(val) {
-    setStatusFilter((prev) => prev === val ? 'all' : val);
-    setPage(1);
+    setStatusFilter((prev) => (prev === val ? 'all' : val));
     setExpanded(null);
   }
 
   function clearDateFilter() {
     setDateFrom('');
     setDateTo('');
-    setPage(1);
     setExpanded(null);
   }
 
   function applyPreset(from, to) {
     setDateFrom(from);
     setDateTo(to);
-    setPage(1);
-    setExpanded(null);
-  }
-
-  function changePage(p) {
-    setPage(p);
     setExpanded(null);
   }
 
@@ -131,7 +142,7 @@ export default function Logs() {
             type="date"
             value={dateFrom}
             max={dateTo || todayStr()}
-            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            onChange={(e) => setDateFrom(e.target.value)}
             className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-wa-green/40 focus:border-wa-green transition"
           />
           <span className="text-xs text-gray-400">to</span>
@@ -140,7 +151,7 @@ export default function Logs() {
             value={dateTo}
             min={dateFrom || undefined}
             max={todayStr()}
-            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            onChange={(e) => setDateTo(e.target.value)}
             className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-wa-green/40 focus:border-wa-green transition"
           />
 
@@ -185,7 +196,7 @@ export default function Logs() {
           value={stats.total}
           color="text-gray-900"
           active={statusFilter === 'all'}
-          onClick={() => { setStatusFilter('all'); setPage(1); }}
+          onClick={() => { setStatusFilter('all'); setExpanded(null); }}
         />
         <StatCard
           icon={<CheckCircle2 className="w-4 h-4 text-green-500" />}
@@ -236,7 +247,7 @@ export default function Logs() {
             </span>
           )}
 
-          <span className="text-gray-400">{filteredLogs.length} entries</span>
+          <span className="text-gray-400">{logs.length} entries loaded</span>
 
           <button
             onClick={() => { setStatusFilter('all'); clearDateFilter(); }}
@@ -269,21 +280,10 @@ export default function Logs() {
           </div>
         )}
 
-        {logs.length > 0 && filteredLogs.length === 0 && (
-          <div className="text-center py-14">
-            <XCircle className="w-12 h-12 mx-auto text-gray-200 mb-3" />
-            <p className="text-gray-500 text-sm font-medium">No {statusFilter} entries</p>
-            <button onClick={() => setStatusFilter('all')} className="text-xs text-gray-400 hover:text-gray-700 underline mt-1">
-              Clear filter
-            </button>
-          </div>
-        )}
-
-        {pagedLogs.length > 0 && (
+        {logs.length > 0 && (
           <ul className="divide-y divide-gray-50">
-            {pagedLogs.map((log, idx) => {
-              const globalIdx  = (page - 1) * PAGE_SIZE + idx;
-              const isExpanded = expanded === globalIdx;
+            {logs.map((log, idx) => {
+              const isExpanded = expanded === idx;
               const isGroup    = log.id?.endsWith('@g.us');
               const isPersonal = log.id?.endsWith('@s.whatsapp.net') || log.id?.endsWith('@c.us');
               const number     = isPersonal
@@ -291,9 +291,9 @@ export default function Logs() {
                 : null;
 
               return (
-                <li key={globalIdx}>
+                <li key={idx}>
                   <button
-                    onClick={() => setExpanded(isExpanded ? null : globalIdx)}
+                    onClick={() => setExpanded(isExpanded ? null : idx)}
                     className="w-full text-left px-5 py-4 hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-start gap-3">
@@ -403,33 +403,24 @@ export default function Logs() {
         )}
       </div>
 
-      {/* ── Pagination ── */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-500">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredLogs.length)} of {filteredLogs.length} entries
-          </p>
-          <div className="flex items-center gap-1">
-            <PageBtn onClick={() => changePage(page - 1)} disabled={page === 1}>
-              <ChevronLeft className="w-4 h-4" />
-            </PageBtn>
-
-            {pageNumbers(page, totalPages).map((p, i) =>
-              p === '…' ? (
-                <span key={`ellipsis-${i}`} className="px-2 text-gray-400 text-xs">…</span>
-              ) : (
-                <PageBtn key={p} onClick={() => changePage(p)} active={p === page}>
-                  {p}
-                </PageBtn>
-              )
-            )}
-
-            <PageBtn onClick={() => changePage(page + 1)} disabled={page === totalPages}>
-              <ChevronRight className="w-4 h-4" />
-            </PageBtn>
-          </div>
-        </div>
-      )}
+      {/* ── Load more / entry count ── */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-400">
+          {logs.length > 0
+            ? `${logs.length} entr${logs.length === 1 ? 'y' : 'ies'} loaded${hasMore ? ' — more available' : ''}`
+            : ''}
+        </p>
+        {hasMore && (
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingMore ? 'animate-spin' : ''}`} />
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -466,33 +457,4 @@ function Detail({ label, value, mono = false, children }) {
       {children ?? <p className={`text-xs text-gray-700 ${mono ? 'font-mono' : ''}`}>{value}</p>}
     </div>
   );
-}
-
-function PageBtn({ onClick, disabled, active, children }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-default
-        ${active
-          ? 'bg-wa-green text-white shadow-sm'
-          : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}
-      `}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** Generate page numbers with ellipsis: [1, …, 4, 5, 6, …, 12] */
-function pageNumbers(current, total) {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = new Set([1, total, current, current - 1, current + 1].filter((p) => p >= 1 && p <= total));
-  const sorted = [...pages].sort((a, b) => a - b);
-  const result = [];
-  for (let i = 0; i < sorted.length; i++) {
-    if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push('…');
-    result.push(sorted[i]);
-  }
-  return result;
 }

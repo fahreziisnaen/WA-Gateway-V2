@@ -3,7 +3,7 @@ import path from 'path';
 import { mkdirSync } from 'fs';
 import fs from 'fs-extra';
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 
 const DB_PATH = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
@@ -21,17 +21,19 @@ db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id         TEXT PRIMARY KEY,
-    username   TEXT UNIQUE NOT NULL,
-    password   TEXT NOT NULL,
-    role       TEXT NOT NULL DEFAULT 'admin',
-    created_at TEXT NOT NULL
+    id                  TEXT PRIMARY KEY,
+    username            TEXT UNIQUE NOT NULL,
+    password            TEXT NOT NULL,
+    role                TEXT NOT NULL DEFAULT 'admin',
+    must_change_password INTEGER NOT NULL DEFAULT 0,
+    created_at          TEXT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS api_keys (
     id         TEXT PRIMARY KEY,
     name       TEXT NOT NULL,
-    key        TEXT UNIQUE NOT NULL,
+    key_hash   TEXT NOT NULL,
+    key_prefix TEXT NOT NULL,
     created_at TEXT NOT NULL,
     last_used  TEXT
   );
@@ -81,16 +83,44 @@ db.exec(`
   );
 `);
 
+// ── Schema migrations (idempotent — safe to run on every startup) ─────────────
+
+// FIX: add must_change_password to users table
+const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+if (!userCols.includes('must_change_password')) {
+  db.exec('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0');
+  console.log('[db] Migration: added must_change_password to users');
+}
+
+// FIX: migrate api_keys from plain key column to key_hash + key_prefix
+const keyCols = db.prepare('PRAGMA table_info(api_keys)').all().map((c) => c.name);
+if (keyCols.includes('key') && !keyCols.includes('key_hash')) {
+  db.exec('ALTER TABLE api_keys ADD COLUMN key_hash TEXT');
+  db.exec('ALTER TABLE api_keys ADD COLUMN key_prefix TEXT');
+  const rows = db.prepare('SELECT id, key FROM api_keys').all();
+  const update = db.prepare('UPDATE api_keys SET key_hash = ?, key_prefix = ? WHERE id = ?');
+  const migrate = db.transaction((entries) => {
+    for (const row of entries) {
+      update.run(createHash('sha256').update(row.key).digest('hex'), row.key.slice(0, 8), row.id);
+    }
+  });
+  migrate(rows);
+  db.exec('ALTER TABLE api_keys DROP COLUMN key');
+  console.log(`[db] Migration: hashed ${rows.length} API key(s)`);
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)');
+
 // ── Default admin (runs once on first start) ──────────────────────────────────
 
 const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
 if (userCount === 0) {
-  db.prepare('INSERT INTO users (id, username, password, role, created_at) VALUES (?, ?, ?, ?, ?)')
+  db.prepare('INSERT INTO users (id, username, password, role, must_change_password, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .run(
       randomBytes(8).toString('hex'),
       'admin',
       bcrypt.hashSync('admin123', 10),
       'admin',
+      1,
       new Date().toISOString(),
     );
   console.log('[db] Default admin created → username: admin  password: admin123');

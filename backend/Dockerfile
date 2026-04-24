@@ -20,8 +20,13 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy application source
 COPY . .
 
-# Pre-create runtime directories (volumes override these at runtime)
-RUN mkdir -p sessions data
+# Pre-create runtime directories and drop to non-root user
+RUN mkdir -p sessions data \
+    && addgroup -S appgroup \
+    && adduser -S appuser -G appgroup \
+    && chown -R appuser:appgroup /app
+
+USER appuser
 
 EXPOSE 3000
 
