@@ -29,6 +29,7 @@ COPY . .
 RUN addgroup -S appgroup \
     && adduser -S appuser -G appgroup \
     && mkdir -p sessions data \
+    && sed -i 's/\r$//' docker-entrypoint.sh \
     && chmod +x docker-entrypoint.sh
 
 EXPOSE 3000
