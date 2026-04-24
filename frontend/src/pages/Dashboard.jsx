@@ -7,11 +7,11 @@ export default function Dashboard({ instances = [] }) {
   const connectedCount = instances.filter((i) => i.status === 'connected').length;
 
   return (
-    <div className="w-full space-y-6">
+    <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
 
       {/* Summary */}
-      <div className="flex gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <StatCard label="Total Instances" value={instances.length} color="text-gray-900" />
         <StatCard label="Connected" value={connectedCount} color="text-green-600" />
         <StatCard
@@ -46,7 +46,7 @@ export default function Dashboard({ instances = [] }) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="space-y-3">
           {instances.map((inst) => (
             <div
               key={inst.id}
@@ -184,7 +184,7 @@ function Row({ icon, label, value, mono = false }) {
 
 function StatCard({ label, value, color }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center w-36">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 text-center">
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
       <p className="text-xs text-gray-500 mt-0.5">{label}</p>
     </div>

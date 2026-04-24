@@ -241,7 +241,7 @@ export default function Instances() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full space-y-5">
+    <div className="max-w-3xl space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

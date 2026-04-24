@@ -45,7 +45,7 @@ export default function Settings() {
   const [tab, setTab] = useState('apikeys');
 
   return (
-    <div className="w-full space-y-5">
+    <div className="max-w-3xl space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <SettingsIcon className="w-6 h-6 text-gray-500" />

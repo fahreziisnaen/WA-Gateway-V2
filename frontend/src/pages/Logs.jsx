@@ -103,7 +103,7 @@ export default function Logs() {
   }
 
   return (
-    <div className="w-full space-y-5">
+    <div className="max-w-4xl space-y-5">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
@@ -334,7 +334,7 @@ export default function Logs() {
                                 {log.recipientName ?? (isGroup ? '—' : number ? `+${number}` : '—')}
                               </span>
                               {isGroup && (
-                                <span className="ml-1.5 text-xs text-gray-400 font-mono truncate max-w-[260px] inline-block align-bottom" title={log.id}>
+                                <span className="ml-1.5 text-xs text-gray-400 font-mono truncate max-w-[160px] inline-block align-bottom" title={log.id}>
                                   {log.id}
                                 </span>
                               )}
@@ -343,7 +343,7 @@ export default function Logs() {
                               )}
                             </div>
                           </div>
-                          <p className="text-xs text-gray-500 truncate max-w-[520px]" title={log.message}>
+                          <p className="text-xs text-gray-500 truncate max-w-[300px]" title={log.message}>
                             {log.message || '—'}
                           </p>
                         </div>

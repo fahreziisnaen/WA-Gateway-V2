@@ -100,7 +100,7 @@ export default function Groups() {
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className="max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Groups</h1>
