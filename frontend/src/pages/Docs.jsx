@@ -102,19 +102,19 @@ function ApiDocs({ instances = [] }) {
 
   const formAliasExample = `id=alert-it&message=Server%20down!&from=${exampleInstance}`;
 
-  const curlJson = \`curl -X POST https://yourdomain.com/send-message \\
+  const curlJson = `curl -X POST https://yourdomain.com/send-message \\
   -H "Content-Type: application/json" \\
   -H "x-api-key: YOUR_API_KEY" \\
-  -d '\${jsonExample}'\`;
+  -d '${jsonExample}'`;
 
-  const curlForm = \`curl -X POST https://yourdomain.com/send-message \\
+  const curlForm = `curl -X POST https://yourdomain.com/send-message \\
   -H "Content-Type: application/x-www-form-urlencoded" \\
   -H "x-api-key: YOUR_API_KEY" \\
   --data-urlencode "id=628123456789" \\
   --data-urlencode "message=Hello World!" \\
-  --data-urlencode "from=\${exampleInstance}"\`;
+  --data-urlencode "from=${exampleInstance}"`;
 
-  const jsJson = \`fetch('/send-message', {
+  const jsJson = `fetch('/send-message', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -123,11 +123,11 @@ function ApiDocs({ instances = [] }) {
   body: JSON.stringify({
     id: '628123456789',
     message: 'Hello World!',
-    from: '\${exampleInstance}',
+    from: '${exampleInstance}',
   }),
-});\`;
+});`;
 
-  const jsForm = \`fetch('/send-message', {
+  const jsForm = `fetch('/send-message', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/x-www-form-urlencoded',
@@ -136,11 +136,11 @@ function ApiDocs({ instances = [] }) {
   body: new URLSearchParams({
     id: '628123456789',
     message: 'Hello World!',
-    from: '\${exampleInstance}',
+    from: '${exampleInstance}',
   }),
-});\`;
+});`;
 
-  const phpJson = \`$ch = curl_init('https://yourdomain.com/send-message');
+  const phpJson = `$ch = curl_init('https://yourdomain.com/send-message');
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
   'Content-Type: application/json',
@@ -149,12 +149,12 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, [
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
   'id'      => '628123456789',
   'message' => 'Hello World!',
-  'from'    => '\${exampleInstance}',
+  'from'    => '${exampleInstance}',
 ]));
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-$response = curl_exec($ch);\`;
+$response = curl_exec($ch);`;
 
-  const phpForm = \`$ch = curl_init('https://yourdomain.com/send-message');
+  const phpForm = `$ch = curl_init('https://yourdomain.com/send-message');
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
   'x-api-key: YOUR_API_KEY',
@@ -162,12 +162,12 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, [
 curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
   'id'      => '628123456789',
   'message' => 'Hello World!',
-  'from'    => '\${exampleInstance}',
+  'from'    => '${exampleInstance}',
 ]));
 // Content-Type: application/x-www-form-urlencoded
 // is automatically sent by cURL when POSTFIELDS is a string
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-$response = curl_exec($ch);\`;
+$response = curl_exec($ch);`;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -264,21 +264,21 @@ $response = curl_exec($ch);\`;
               <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
                 <button
                   onClick={() => setFormat('json')}
-                  className={\`px-3 py-1.5 transition-colors \${
+                  className={`px-3 py-1.5 transition-colors ${
                     format === 'json'
                       ? 'bg-wa-teal text-white'
                       : 'text-gray-500 hover:bg-gray-50'
-                  }\`}
+                  }`}
                 >
                   JSON
                 </button>
                 <button
                   onClick={() => setFormat('form')}
-                  className={\`px-3 py-1.5 transition-colors border-l border-gray-200 \${
+                  className={`px-3 py-1.5 transition-colors border-l border-gray-200 ${
                     format === 'form'
                       ? 'bg-wa-teal text-white'
                       : 'text-gray-500 hover:bg-gray-50'
-                  }\`}
+                  }`}
                 >
                   Form URL Encoded
                 </button>
@@ -326,15 +326,15 @@ $response = curl_exec($ch);\`;
                 <div className="space-y-2">
                   <div>
                     <p className="text-[10px] text-orange-600 font-medium mb-0.5">Option A: IP Whitelist (no API key)</p>
-                    <CodeBlock code={\`id=alert-it&message=[%sitename] %device %sensor %status\`} />
+                    <CodeBlock code={`id=alert-it&message=[%sitename] %device %sensor %status`} />
                   </div>
                   <div>
                     <p className="text-[10px] text-orange-600 font-medium mb-0.5">Option B: API key in body</p>
-                    <CodeBlock code={\`apikey=YOUR_API_KEY&id=alert-it&message=[%sitename] %device %sensor %status\`} />
+                    <CodeBlock code={`apikey=YOUR_API_KEY&id=alert-it&message=[%sitename] %device %sensor %status`} />
                   </div>
                   <div>
                     <p className="text-[10px] text-orange-600 font-medium mb-0.5">Option C: API key in URL query</p>
-                    <CodeBlock code={\`URL: https://yourdomain.com/send-message?apikey=YOUR_API_KEY\nBody: id=alert-it&message=[%sitename] %device %sensor %status\`} />
+                    <CodeBlock code={`URL: https://yourdomain.com/send-message?apikey=YOUR_API_KEY\nBody: id=alert-it&message=[%sitename] %device %sensor %status`} />
                   </div>
                 </div>
               </div>
@@ -347,11 +347,11 @@ $response = curl_exec($ch);\`;
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[11px] text-green-600 font-medium mb-1">202 Accepted</p>
-                <CodeBlock code={\`{\n  "success": true,\n  "jobId": "42",\n  "message": "Message queued",\n  "destination": "6281234@s.whatsapp.net",\n  "type": "personal",\n  "sentFrom": "\${exampleInstance}"\n}\`} />
+                <CodeBlock code={`{\n  "success": true,\n  "jobId": "42",\n  "message": "Message queued",\n  "destination": "6281234@s.whatsapp.net",\n  "type": "personal",\n  "sentFrom": "${exampleInstance}"\n}`} />
               </div>
               <div>
                 <p className="text-[11px] text-red-500 font-medium mb-1">4xx Error</p>
-                <CodeBlock code={\`{\n  "error": "\`id\` is required and must\\nbe a non-empty string"\n}\`} />
+                <CodeBlock code={`{\n  "error": "\`id\` is required and must\\nbe a non-empty string"\n}`} />
               </div>
             </div>
           </div>
