@@ -44,6 +44,12 @@ export default function Instances() {
   const qrModalRef = useRef(null);
   useEffect(() => { qrModalRef.current = qrModal; }, [qrModal]);
 
+  // Stop QR polling when instance connects (avoids side-effects inside state updaters)
+  useEffect(() => {
+    if (qrModal?.status === 'connected') stopQrPoll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrModal?.status]);
+
   // Copy state
   const [copied, setCopied] = useState(null);
 
@@ -91,7 +97,6 @@ export default function Instances() {
       setQrModal((prev) => {
         if (!prev || prev.id !== data.id) return prev;
         if (data.status === 'connected') {
-          stopQrPoll();
           return { ...prev, status: 'connected', waName: data.waName, phone: data.phone, qr: null };
         }
         return { ...prev, status: data.status, ...(data.qr ? { qr: data.qr, error: null } : {}) };
@@ -169,15 +174,8 @@ export default function Instances() {
     // Fetch immediately
     refreshQR(inst.id);
 
-    // Then poll
-    qrPollRef.current = setInterval(() => {
-      const modal = qrModalRef.current;
-      if (!modal || modal.id !== inst.id || modal.status === 'connected') {
-        stopQrPoll();
-        return;
-      }
-      refreshQR(inst.id);
-    }, QR_POLL_MS);
+    // Then poll — interval is explicitly stopped by closeQRModal, connected useEffect, or unmount
+    qrPollRef.current = setInterval(() => refreshQR(inst.id), QR_POLL_MS);
   }
 
   function closeQRModal() {
