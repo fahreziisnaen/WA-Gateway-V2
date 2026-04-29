@@ -69,7 +69,7 @@ export function getLogs({ limit = 100, from = null, to = null, cursor = null, st
            instance_phone as instancePhone, recipient_id as id,
            recipient_name as recipientName, message, status, error
     FROM message_logs ${where}
-    ORDER BY id DESC
+    ORDER BY rowId DESC
     LIMIT ?
   `).all(...params, capped + 1);
 
