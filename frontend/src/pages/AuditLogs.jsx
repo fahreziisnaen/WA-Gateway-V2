@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ShieldCheck, RefreshCw, ChevronDown, ChevronUp,
+  ShieldCheck, RefreshCw, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   LogIn, UserPlus, UserMinus, KeyRound, Trash2,
   Smartphone, RotateCcw, Tags, Globe, AlertCircle,
   CalendarDays, Search, X, Filter,
@@ -8,24 +8,25 @@ import {
 import { fetchAuditLogs } from '../services/api.js';
 
 const AUTO_REFRESH_MS = 30_000;
+const PAGE_SIZE = 50;
 
 // ── Action metadata ───────────────────────────────────────────────────────────
 
 const ACTION_META = {
-  'login.success':       { label: 'Login',               color: 'bg-blue-100 text-blue-700',   Icon: LogIn },
-  'login.failure':       { label: 'Login Failed',        color: 'bg-red-100 text-red-700',     Icon: AlertCircle },
-  'user.create':         { label: 'Create User',         color: 'bg-green-100 text-green-700', Icon: UserPlus },
-  'user.delete':         { label: 'Delete User',         color: 'bg-red-100 text-red-700',     Icon: UserMinus },
-  'user.password_change':{ label: 'Change Password',     color: 'bg-yellow-100 text-yellow-700', Icon: KeyRound },
-  'apikey.create':       { label: 'Create API Key',      color: 'bg-green-100 text-green-700', Icon: KeyRound },
-  'apikey.revoke':       { label: 'Revoke API Key',      color: 'bg-red-100 text-red-700',     Icon: Trash2 },
-  'instance.add':        { label: 'Add Instance',        color: 'bg-green-100 text-green-700', Icon: Smartphone },
-  'instance.remove':     { label: 'Remove Instance',     color: 'bg-red-100 text-red-700',     Icon: Smartphone },
-  'instance.reset':      { label: 'Reset Instance',      color: 'bg-yellow-100 text-yellow-700', Icon: RotateCcw },
-  'alias.set':           { label: 'Set Group Alias',     color: 'bg-purple-100 text-purple-700', Icon: Tags },
-  'alias.delete':        { label: 'Delete Group Alias',  color: 'bg-red-100 text-red-700',     Icon: Tags },
-  'ip.add':              { label: 'Add Allowed IP',      color: 'bg-green-100 text-green-700', Icon: Globe },
-  'ip.remove':           { label: 'Remove Allowed IP',   color: 'bg-red-100 text-red-700',     Icon: Globe },
+  'login.success':        { label: 'Login',              color: 'bg-blue-100 text-blue-700',     Icon: LogIn },
+  'login.failure':        { label: 'Login Failed',       color: 'bg-red-100 text-red-700',       Icon: AlertCircle },
+  'user.create':          { label: 'Create User',        color: 'bg-green-100 text-green-700',   Icon: UserPlus },
+  'user.delete':          { label: 'Delete User',        color: 'bg-red-100 text-red-700',       Icon: UserMinus },
+  'user.password_change': { label: 'Change Password',    color: 'bg-yellow-100 text-yellow-700', Icon: KeyRound },
+  'apikey.create':        { label: 'Create API Key',     color: 'bg-green-100 text-green-700',   Icon: KeyRound },
+  'apikey.revoke':        { label: 'Revoke API Key',     color: 'bg-red-100 text-red-700',       Icon: Trash2 },
+  'instance.add':         { label: 'Add Instance',       color: 'bg-green-100 text-green-700',   Icon: Smartphone },
+  'instance.remove':      { label: 'Remove Instance',    color: 'bg-red-100 text-red-700',       Icon: Smartphone },
+  'instance.reset':       { label: 'Reset Instance',     color: 'bg-yellow-100 text-yellow-700', Icon: RotateCcw },
+  'alias.set':            { label: 'Set Group Alias',    color: 'bg-purple-100 text-purple-700', Icon: Tags },
+  'alias.delete':         { label: 'Delete Group Alias', color: 'bg-red-100 text-red-700',       Icon: Tags },
+  'ip.add':               { label: 'Add Allowed IP',     color: 'bg-green-100 text-green-700',   Icon: Globe },
+  'ip.remove':            { label: 'Remove Allowed IP',  color: 'bg-red-100 text-red-700',       Icon: Globe },
 };
 
 function getActionMeta(action) {
@@ -39,6 +40,9 @@ function fmt(ts) {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
 }
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function daysAgoStr(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 
 function DetailsGrid({ details }) {
   if (!details || typeof details !== 'object') return <span className="text-xs text-gray-400">{String(details ?? '—')}</span>;
@@ -56,24 +60,23 @@ function DetailsGrid({ details }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-function daysAgoStr(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
-
 export default function AuditLogs() {
-  const [logs, setLogs]               = useState([]);
-  const [loading, setLoading]         = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError]             = useState(null);
-  const [expanded, setExpanded]       = useState(null);
-  const [cursor, setCursor]           = useState(null);
-  const [hasMore, setHasMore]         = useState(false);
+  const [logs, setLogs]         = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const [hasMore, setHasMore]   = useState(false);
+
+  // Cursor-based pagination
+  const [pageIdx, setPageIdx]   = useState(0);
+  const [cursors, setCursors]   = useState([null]);
 
   // Filters
-  const [dateFrom, setDateFrom]       = useState('');
-  const [dateTo, setDateTo]           = useState('');
-  const [actionFilter, setActionFilter] = useState('');
-  const [actorInput, setActorInput]   = useState('');
-  const [actor, setActor]             = useState('');
+  const [dateFrom, setDateFrom]           = useState('');
+  const [dateTo, setDateTo]               = useState('');
+  const [actionFilter, setActionFilter]   = useState('');
+  const [actorInput, setActorInput]       = useState('');
+  const [actor, setActor]                 = useState('');
 
   // Debounce actor input 400 ms
   useEffect(() => {
@@ -89,12 +92,15 @@ export default function AuditLogs() {
     setActorInput(''); setActor('');
   }
 
-  const loadLogs = useCallback(async () => {
+  // ── Core fetch ───────────────────────────────────────────────────────────────
+  async function doFetch(cursor, idx) {
     setLoading(true);
     setError(null);
     setExpanded(null);
     try {
       const res = await fetchAuditLogs({
+        limit: PAGE_SIZE,
+        cursor: cursor || undefined,
         from: dateFrom || undefined,
         to: dateTo || undefined,
         action: actionFilter || undefined,
@@ -103,7 +109,40 @@ export default function AuditLogs() {
       const { logs: newLogs, hasMore: more, nextCursor: nc } = res.data;
       setLogs(newLogs);
       setHasMore(more);
-      setCursor(nc);
+      setPageIdx(idx);
+      if (nc) {
+        setCursors((prev) => {
+          const next = [...prev];
+          if (!next[idx + 1]) next[idx + 1] = nc;
+          return next;
+        });
+      }
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'Failed to load audit logs.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // loadLogs resets to page 0 — used on filter change + manual refresh + auto-refresh
+  const loadLogs = useCallback(async () => {
+    setCursors([null]);
+    setPageIdx(0);
+    setLoading(true);
+    setError(null);
+    setExpanded(null);
+    try {
+      const res = await fetchAuditLogs({
+        limit: PAGE_SIZE,
+        from: dateFrom || undefined,
+        to: dateTo || undefined,
+        action: actionFilter || undefined,
+        actor: actor || undefined,
+      });
+      const { logs: newLogs, hasMore: more, nextCursor: nc } = res.data;
+      setLogs(newLogs);
+      setHasMore(more);
+      if (nc) setCursors([null, nc]);
     } catch (err) {
       setError(err.response?.data?.error ?? 'Failed to load audit logs.');
     } finally {
@@ -111,33 +150,27 @@ export default function AuditLogs() {
     }
   }, [dateFrom, dateTo, actionFilter, actor]);
 
-  const loadMore = useCallback(async () => {
-    if (!cursor || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      const res = await fetchAuditLogs({
-        cursor,
-        from: dateFrom || undefined,
-        to: dateTo || undefined,
-        action: actionFilter || undefined,
-        actor: actor || undefined,
-      });
-      const { logs: moreLogs, hasMore: more, nextCursor: nc } = res.data;
-      setLogs((prev) => [...prev, ...moreLogs]);
-      setHasMore(more);
-      setCursor(nc);
-    } catch (err) {
-      setError(err.response?.data?.error ?? 'Failed to load more.');
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [cursor, dateFrom, dateTo, actionFilter, actor, loadingMore]);
+  function goNext() {
+    if (!hasMore || loading) return;
+    const nextIdx = pageIdx + 1;
+    const nextCursor = cursors[nextIdx];
+    if (nextCursor) doFetch(nextCursor, nextIdx);
+  }
+
+  function goPrev() {
+    if (pageIdx === 0 || loading) return;
+    doFetch(cursors[pageIdx - 1], pageIdx - 1);
+  }
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  // Auto-refresh only on page 0
   useEffect(() => {
-    const timer = setInterval(loadLogs, AUTO_REFRESH_MS);
+    const timer = setInterval(() => {
+      if (pageIdx === 0) loadLogs();
+    }, AUTO_REFRESH_MS);
     return () => clearInterval(timer);
-  }, [loadLogs]);
+  }, [loadLogs, pageIdx]);
 
   return (
     <div className="max-w-4xl space-y-5">
@@ -146,7 +179,9 @@ export default function AuditLogs() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Audit Log</h1>
-          <p className="text-sm text-gray-500 mt-0.5">All admin activity · auto-refreshes every 30 seconds</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            All admin activity · auto-refreshes every 30 s on page 1
+          </p>
         </div>
         <button
           onClick={loadLogs}
@@ -180,7 +215,6 @@ export default function AuditLogs() {
             onChange={(e) => setDateTo(e.target.value)}
             className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-wa-green/40 focus:border-wa-green transition"
           />
-          {/* Quick presets */}
           <div className="flex items-center gap-1 ml-auto flex-wrap">
             {[
               { label: 'Today',   from: todayStr(),     to: todayStr() },
@@ -202,10 +236,9 @@ export default function AuditLogs() {
           </div>
         </div>
 
-        {/* Action + Actor row */}
+        {/* Action type + actor row */}
         <div className="flex items-center gap-2 flex-wrap">
           <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          {/* Action type dropdown */}
           <select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
@@ -217,7 +250,6 @@ export default function AuditLogs() {
             ))}
           </select>
 
-          {/* Actor search */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
             <input
@@ -288,8 +320,10 @@ export default function AuditLogs() {
         {!loading && !logs.length && !error && (
           <div className="text-center py-14">
             <ShieldCheck className="w-12 h-12 mx-auto text-gray-200 mb-3" />
-            <p className="text-gray-500 text-sm font-medium">No activity yet</p>
-            <p className="text-gray-400 text-xs mt-1">Actions performed by admin users will appear here.</p>
+            <p className="text-gray-500 text-sm font-medium">No activity found</p>
+            <p className="text-gray-400 text-xs mt-1">
+              {hasFilters ? 'No entries match the selected filters.' : 'Actions performed by admin users will appear here.'}
+            </p>
           </div>
         )}
 
@@ -298,7 +332,6 @@ export default function AuditLogs() {
             {logs.map((log, idx) => {
               const { label, color, Icon } = getActionMeta(log.action);
               const isExpanded = expanded === idx;
-              const isFailure  = log.action.includes('.failure') || log.action.includes('.delete') || log.action.includes('.revoke') || log.action.includes('.remove');
 
               return (
                 <li key={idx}>
@@ -307,21 +340,18 @@ export default function AuditLogs() {
                     className="w-full text-left px-5 py-3.5 hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      {/* Action badge */}
                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${color}`}>
                         <Icon className="w-3 h-3" />
                         {label}
                       </span>
 
-                      {/* Actor */}
                       <span className="text-xs font-semibold text-gray-700 flex-shrink-0">
                         {log.actor ?? <span className="text-gray-400 font-normal italic">system</span>}
                       </span>
 
-                      {/* Details preview */}
                       {log.details && (
                         <span className="text-xs text-gray-400 truncate min-w-0">
-                          {Object.entries(log.details).map(([k, v]) => `${v}`).join(' · ')}
+                          {Object.values(log.details).map((v) => `${v}`).join(' · ')}
                         </span>
                       )}
 
@@ -363,24 +393,38 @@ export default function AuditLogs() {
         )}
       </div>
 
-      {/* Load more / count */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400">
-          {logs.length > 0
-            ? `${logs.length} entr${logs.length === 1 ? 'y' : 'ies'} loaded${hasMore ? ' — more available' : ''}`
-            : ''}
-        </p>
-        {hasMore && (
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${loadingMore ? 'animate-spin' : ''}`} />
-            {loadingMore ? 'Loading…' : 'Load more'}
-          </button>
-        )}
-      </div>
+      {/* ── Pagination ── */}
+      {(logs.length > 0 || pageIdx > 0) && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-400">
+            Page {pageIdx + 1} · {logs.length} entr{logs.length === 1 ? 'y' : 'ies'}
+            {pageIdx === 0 && !loading && ' · auto-refreshing'}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={goPrev}
+              disabled={pageIdx === 0 || loading}
+              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Prev
+            </button>
+
+            <span className="w-16 text-center text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl py-2 shadow-sm">
+              {pageIdx + 1}
+            </span>
+
+            <button
+              onClick={goNext}
+              disabled={!hasMore || loading}
+              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ScrollText, RefreshCw, CheckCircle2, XCircle, Clock,
   BarChart3, Smartphone, Globe, Users, Phone,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   CalendarDays, X, Search,
 } from 'lucide-react';
 import { fetchLogs } from '../services/api.js';
 
 const AUTO_REFRESH_MS = 15_000;
+const PAGE_SIZE = 100;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -32,19 +33,24 @@ function daysAgoStr(n) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Logs() {
-  const [logs, setLogs]               = useState([]);
-  const [stats, setStats]             = useState({ total: 0, success: 0, failed: 0 });
-  const [loading, setLoading]         = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError]             = useState(null);
-  const [expanded, setExpanded]       = useState(null);
+  const [logs, setLogs]         = useState([]);
+  const [stats, setStats]       = useState({ total: 0, success: 0, failed: 0 });
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const [hasMore, setHasMore]   = useState(false);
+
+  // Cursor-based pagination: cursors[i] = the cursor value needed to fetch page i
+  // Page 0 always uses cursor=null (latest records)
+  const [pageIdx, setPageIdx]   = useState(0);
+  const [cursors, setCursors]   = useState([null]);
+
+  // Filters
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFrom, setDateFrom]       = useState('');
-  const [dateTo, setDateTo]           = useState('');
-  const [cursor, setCursor]           = useState(null);
-  const [hasMore, setHasMore]         = useState(false);
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch]           = useState('');
+  const [dateFrom, setDateFrom]         = useState('');
+  const [dateTo, setDateTo]             = useState('');
+  const [searchInput, setSearchInput]   = useState('');
+  const [search, setSearch]             = useState('');
 
   // Debounce search input 400 ms
   useEffect(() => {
@@ -52,22 +58,60 @@ export default function Logs() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const loadLogs = useCallback(async () => {
+  // ── Core fetch (reads current filter state via closure) ──────────────────────
+  async function doFetch(cursor, idx) {
     setLoading(true);
     setError(null);
     setExpanded(null);
     try {
       const res = await fetchLogs({
+        limit: PAGE_SIZE,
+        from: dateFrom || undefined,
+        to: dateTo || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        search: search || undefined,
+        cursor: cursor || undefined,
+      });
+      const { logs: newLogs, hasMore: more, nextCursor: nc, stats: s } = res.data;
+      setLogs(newLogs);
+      setStats(s);
+      setHasMore(more);
+      setPageIdx(idx);
+      // Store next cursor so we can navigate forward next time
+      if (nc) {
+        setCursors((prev) => {
+          const next = [...prev];
+          if (!next[idx + 1]) next[idx + 1] = nc;
+          return next;
+        });
+      }
+    } catch (err) {
+      setError(err.response?.data?.error ?? 'Failed to load logs.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── loadLogs: always resets to page 0 (used on filter change + manual refresh) ─
+  const loadLogs = useCallback(async () => {
+    setCursors([null]);
+    setPageIdx(0);
+    setLoading(true);
+    setError(null);
+    setExpanded(null);
+    try {
+      const res = await fetchLogs({
+        limit: PAGE_SIZE,
         from: dateFrom || undefined,
         to: dateTo || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
         search: search || undefined,
       });
-      const { logs: newLogs, hasMore: more, nextCursor: nc, stats: newStats } = res.data;
+      const { logs: newLogs, hasMore: more, nextCursor: nc, stats: s } = res.data;
       setLogs(newLogs);
-      setStats(newStats);
+      setStats(s);
       setHasMore(more);
-      setCursor(nc);
+      if (nc) setCursors([null, nc]);
     } catch (err) {
       setError(err.response?.data?.error ?? 'Failed to load logs.');
     } finally {
@@ -75,33 +119,28 @@ export default function Logs() {
     }
   }, [dateFrom, dateTo, statusFilter, search]);
 
-  const loadMore = useCallback(async () => {
-    if (!cursor || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      const res = await fetchLogs({
-        from: dateFrom || undefined,
-        to: dateTo || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        search: search || undefined,
-        cursor,
-      });
-      const { logs: moreLogs, hasMore: more, nextCursor: nc } = res.data;
-      setLogs((prev) => [...prev, ...moreLogs]);
-      setHasMore(more);
-      setCursor(nc);
-    } catch (err) {
-      setError(err.response?.data?.error ?? 'Failed to load more logs.');
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [cursor, dateFrom, dateTo, statusFilter, search, loadingMore]);
+  function goNext() {
+    if (!hasMore || loading) return;
+    const nextIdx = pageIdx + 1;
+    const nextCursor = cursors[nextIdx];
+    if (nextCursor) doFetch(nextCursor, nextIdx);
+  }
+
+  function goPrev() {
+    if (pageIdx === 0 || loading) return;
+    const prevIdx = pageIdx - 1;
+    doFetch(cursors[prevIdx], prevIdx);
+  }
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  // Auto-refresh only on page 0 (new records appear at the top)
   useEffect(() => {
-    const timer = setInterval(loadLogs, AUTO_REFRESH_MS);
+    const timer = setInterval(() => {
+      if (pageIdx === 0) loadLogs();
+    }, AUTO_REFRESH_MS);
     return () => clearInterval(timer);
-  }, [loadLogs]);
+  }, [loadLogs, pageIdx]);
 
   const successRate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
   const hasDateFilter = dateFrom || dateTo;
@@ -131,7 +170,9 @@ export default function Logs() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Message Logs</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Auto-refreshes every 15 seconds · retained for 90 days</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Auto-refreshes every 15 s on page 1 · retained for 90 days
+          </p>
         </div>
         <button
           onClick={loadLogs}
@@ -284,8 +325,6 @@ export default function Logs() {
               "{search}"
             </span>
           )}
-
-          <span className="text-gray-400">{logs.length} entries loaded</span>
 
           <button
             onClick={() => { setStatusFilter('all'); clearDateFilter(); setSearchInput(''); setSearch(''); }}
@@ -441,24 +480,38 @@ export default function Logs() {
         )}
       </div>
 
-      {/* ── Load more / entry count ── */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400">
-          {logs.length > 0
-            ? `${logs.length} entr${logs.length === 1 ? 'y' : 'ies'} loaded${hasMore ? ' — more available' : ''}`
-            : ''}
-        </p>
-        {hasMore && (
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${loadingMore ? 'animate-spin' : ''}`} />
-            {loadingMore ? 'Loading…' : 'Load more'}
-          </button>
-        )}
-      </div>
+      {/* ── Pagination ── */}
+      {(logs.length > 0 || pageIdx > 0) && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-400">
+            Page {pageIdx + 1} · {logs.length} entr{logs.length === 1 ? 'y' : 'ies'}
+            {pageIdx === 0 && !loading && ' · auto-refreshing'}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={goPrev}
+              disabled={pageIdx === 0 || loading}
+              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Prev
+            </button>
+
+            <span className="w-16 text-center text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl py-2 shadow-sm">
+              {pageIdx + 1}
+            </span>
+
+            <button
+              onClick={goNext}
+              disabled={!hasMore || loading}
+              className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
