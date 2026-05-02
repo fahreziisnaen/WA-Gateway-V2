@@ -2,7 +2,6 @@ import {
   getAllUsers,
   createUser,
   changePassword,
-  changePassword,
   deleteUser,
   findByUsername,
   enable2FA,
