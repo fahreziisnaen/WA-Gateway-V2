@@ -95,6 +95,19 @@ export default function ForcePasswordChangeModal() {
             {saving ? 'Updating...' : 'Update Password'}
           </button>
         </form>
+
+        <div className="mt-4 text-center">
+          <button 
+            onClick={() => {
+              localStorage.removeItem('wa_token');
+              localStorage.removeItem('wa_user');
+              window.location.href = '/login';
+            }}
+            className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
     </div>
   );
