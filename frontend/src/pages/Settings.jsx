@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   X,
   Hash,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   fetchUsers,
@@ -31,6 +32,9 @@ import {
   fetchAllowedIps,
   addAllowedIp,
   removeAllowedIp,
+  setup2FA,
+  verify2FA,
+  disable2FA,
 } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import Pagination from '../components/Pagination.jsx';
@@ -264,11 +268,13 @@ function UsersTab() {
   const [creating, setCreating] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
 
-  // Change password modal
   const [pwModal, setPwModal] = useState(null); // { id, username }
   const [newPw, setNewPw] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // 2FA modal
+  const [faModal, setFaModal] = useState(null); // { user, qrDataURL, secret, token }
 
   async function load() {
     setLoading(true);
@@ -408,6 +414,34 @@ function UsersTab() {
                 >
                   Change PW
                 </button>
+                <button
+                  onClick={async () => {
+                    if (u.twoFactorEnabled) {
+                      if (window.confirm(`Disable 2FA for ${u.username}?`)) {
+                        try {
+                          await disable2FA(u.id);
+                          showFlash('success', '2FA disabled');
+                          load();
+                        } catch (err) {
+                          showFlash('error', err.response?.data?.error ?? 'Failed to disable 2FA');
+                        }
+                      }
+                    } else {
+                      try {
+                        const res = await setup2FA(u.id);
+                        setFaModal({ user: u, qrDataURL: res.data.qrDataURL, secret: res.data.secret, token: '' });
+                      } catch (err) {
+                        showFlash('error', err.response?.data?.error ?? 'Failed to initiate 2FA setup');
+                      }
+                    }
+                  }}
+                  className={`text-xs px-2 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                    u.twoFactorEnabled ? 'text-wa-teal bg-wa-green/10 hover:bg-wa-green/20' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+                  }`}
+                >
+                  {u.twoFactorEnabled ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                  2FA
+                </button>
                 {u.id !== currentUser?.id && (
                   <button
                     onClick={() => handleDelete(u.id, u.username)}
@@ -466,6 +500,76 @@ function UsersTab() {
                   className="flex-1 px-4 py-2 bg-wa-green hover:bg-wa-teal disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors"
                 >
                   {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2FA setup modal */}
+      {faModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+            <h2 className="text-base font-semibold text-gray-900 mb-2">
+              Set Up Two-Factor Authentication
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Scan this QR code with Google Authenticator or Authy.
+            </p>
+            
+            <div className="bg-gray-50 p-4 rounded-xl flex justify-center mb-4">
+              <img src={faModal.qrDataURL} alt="2FA QR Code" className="w-48 h-48" />
+            </div>
+
+            <p className="text-xs text-gray-400 mb-4 font-mono select-all">
+              {faModal.secret}
+            </p>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setSaving(true);
+                try {
+                  await verify2FA(faModal.user.id, faModal.token);
+                  showFlash('success', '2FA enabled successfully');
+                  setFaModal(null);
+                  load();
+                } catch (err) {
+                  showFlash('error', err.response?.data?.error ?? 'Invalid 2FA code');
+                } finally {
+                  setSaving(false);
+                }
+              }} 
+              className="space-y-4"
+            >
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={faModal.token}
+                  onChange={(e) => setFaModal({ ...faModal, token: e.target.value })}
+                  maxLength={6}
+                  pattern="\d*"
+                  required
+                  autoFocus
+                  className="w-full px-3 py-3 border border-gray-200 rounded-xl text-center text-xl tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-wa-green/40 focus:border-wa-green transition"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFaModal(null)}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || faModal.token.length !== 6}
+                  className="flex-1 px-4 py-2.5 bg-wa-green hover:bg-wa-teal disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors"
+                >
+                  {saving ? 'Verifying…' : 'Verify & Enable'}
                 </button>
               </div>
             </form>

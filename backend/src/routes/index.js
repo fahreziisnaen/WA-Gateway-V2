@@ -20,6 +20,9 @@ import {
   createUserController,
   changePasswordController,
   deleteUserController,
+  setup2FAController,
+  verify2FAController,
+  disable2FAController,
   getKeysController,
   createKeyController,
   revokeKeyController,
@@ -66,6 +69,10 @@ export function registerRoutes(app) {
   app.post('/admin/users', jwtMiddleware, createUserController);
   app.put('/admin/users/:id/password', jwtMiddleware, changePasswordController);
   app.delete('/admin/users/:id', jwtMiddleware, deleteUserController);
+  
+  app.get('/admin/users/:id/2fa/setup', jwtMiddleware, setup2FAController);
+  app.post('/admin/users/:id/2fa/verify', jwtMiddleware, verify2FAController);
+  app.delete('/admin/users/:id/2fa', jwtMiddleware, disable2FAController);
 
   // API Keys
   app.get('/admin/apikeys', jwtMiddleware, getKeysController);

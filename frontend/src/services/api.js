@@ -29,8 +29,8 @@ api.interceptors.response.use(
 );
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-export const login = (username, password) =>
-  api.post('/auth/login', { username, password });
+export const login = (username, password, totpCode) =>
+  api.post('/auth/login', { username, password, totpCode });
 
 // ── Status (legacy) ───────────────────────────────────────────────────────────
 export const fetchStatus = () => api.get('/status');
@@ -64,6 +64,10 @@ export const createUser = (username, password) =>
 export const changePassword = (id, password) =>
   api.put(`/admin/users/${id}/password`, { password });
 export const deleteUser = (id) => api.delete(`/admin/users/${id}`);
+
+export const setup2FA = (id) => api.get(`/admin/users/${id}/2fa/setup`);
+export const verify2FA = (id, token) => api.post(`/admin/users/${id}/2fa/verify`, { token });
+export const disable2FA = (id) => api.delete(`/admin/users/${id}/2fa`);
 
 // ── API Keys ──────────────────────────────────────────────────────────────────
 export const fetchApiKeys = () => api.get('/admin/apikeys');

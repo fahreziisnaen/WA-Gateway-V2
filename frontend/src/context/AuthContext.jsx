@@ -13,8 +13,11 @@ export function AuthProvider({ children }) {
     }
   });
 
-  const login = useCallback(async (username, password) => {
-    const res = await apiLogin(username, password);
+  const login = useCallback(async (username, password, totpCode) => {
+    const res = await apiLogin(username, password, totpCode);
+    if (res.data.requires2FA) {
+      return { requires2FA: true };
+    }
     const { token, user } = res.data;
     localStorage.setItem('wa_token', token);
     localStorage.setItem('wa_user', JSON.stringify(user));

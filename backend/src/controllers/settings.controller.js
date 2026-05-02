@@ -2,9 +2,15 @@ import {
   getAllUsers,
   createUser,
   changePassword,
+  changePassword,
   deleteUser,
   findByUsername,
+  enable2FA,
+  disable2FA,
 } from '../services/user.service.js';
+
+import { authenticator } from 'otplib';
+import qrcode from 'qrcode';
 
 import {
   getAllKeys,
@@ -79,6 +85,71 @@ export async function deleteUserController(req, res) {
     addAuditLog({
       actor: req.user?.username, actorId: req.user?.id,
       action: 'user.delete', details: { username: target?.username ?? id },
+      ip: getSourceIp(req),
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+}
+
+export async function setup2FAController(req, res) {
+  try {
+    const { id } = req.params;
+    const targetUser = getAllUsers().find((u) => u.id === id);
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    const secret = authenticator.generateSecret();
+    // Temporarily save the secret but don't enable it yet
+    import('../services/db.js').then(({ default: db }) => {
+      db.prepare('UPDATE users SET two_factor_secret = ? WHERE id = ?').run(secret, id);
+    });
+
+    const otpauth = authenticator.keyuri(targetUser.username, 'WA-Gateway', secret);
+    const qrDataURL = await qrcode.toDataURL(otpauth);
+
+    return res.json({ secret, qrDataURL });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function verify2FAController(req, res) {
+  try {
+    const { id } = req.params;
+    const { token } = req.body;
+    
+    const db = (await import('../services/db.js')).default;
+    const rawUser = db.prepare('SELECT two_factor_secret FROM users WHERE id = ?').get(id);
+    if (!rawUser || !rawUser.two_factor_secret) {
+      return res.status(400).json({ error: '2FA setup not initiated' });
+    }
+
+    const isValid = authenticator.verify({ token, secret: rawUser.two_factor_secret });
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid 2FA code' });
+    }
+
+    enable2FA(id, rawUser.two_factor_secret);
+    addAuditLog({
+      actor: req.user?.username, actorId: req.user?.id,
+      action: 'user.2fa.enable', details: { targetId: id },
+      ip: getSourceIp(req),
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+}
+
+export async function disable2FAController(req, res) {
+  try {
+    const { id } = req.params;
+    disable2FA(id);
+    addAuditLog({
+      actor: req.user?.username, actorId: req.user?.id,
+      action: 'user.2fa.disable', details: { targetId: id },
       ip: getSourceIp(req),
     });
     return res.json({ success: true });

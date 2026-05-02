@@ -26,6 +26,8 @@ db.exec(`
     password            TEXT NOT NULL,
     role                TEXT NOT NULL DEFAULT 'admin',
     must_change_password INTEGER NOT NULL DEFAULT 0,
+    two_factor_secret   TEXT,
+    two_factor_enabled  INTEGER NOT NULL DEFAULT 0,
     created_at          TEXT NOT NULL
   );
 
@@ -90,6 +92,11 @@ const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name)
 if (!userCols.includes('must_change_password')) {
   db.exec('ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0');
   console.log('[db] Migration: added must_change_password to users');
+}
+if (!userCols.includes('two_factor_enabled')) {
+  db.exec('ALTER TABLE users ADD COLUMN two_factor_secret TEXT');
+  db.exec('ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER NOT NULL DEFAULT 0');
+  console.log('[db] Migration: added 2FA columns to users');
 }
 
 // FIX: migrate api_keys from plain key column to key_hash + key_prefix.
