@@ -24,8 +24,17 @@ export function jwtMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    req.user = payload;
-    next();
+    
+    import('../services/user.service.js').then(({ findByUsername }) => {
+      const user = findByUsername(payload.username);
+      if (!user || user.id !== payload.id) {
+        return res.status(401).json({ error: 'Unauthorized: User no longer exists' });
+      }
+      req.user = payload;
+      next();
+    }).catch(err => {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    });
   } catch (err) {
     const message =
       err.name === 'TokenExpiredError' ? 'Session expired, please log in again' : 'Invalid token';
