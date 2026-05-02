@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from './StatusBadge.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import ForcePasswordChangeModal from './ForcePasswordChangeModal.jsx';
 
 const NAV = [
   { path: '/', label: 'Dashboard', Icon: LayoutDashboard },
@@ -150,6 +151,8 @@ export default function Layout({ children, instances = [], socketConnected }) {
         </div>
         <main className="flex-1 overflow-auto p-6 md:p-8">{children}</main>
       </div>
+
+      <ForcePasswordChangeModal />
     </div>
   );
 }

@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(form.username, form.password);
-      navigate(user?.mustChangePassword ? '/settings' : '/', { replace: true });
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err.response?.data?.error ?? 'Login failed. Check your credentials.');
     } finally {
