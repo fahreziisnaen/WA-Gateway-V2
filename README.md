@@ -89,18 +89,19 @@ docker compose logs -f wa-backend
 | Backend API | http://localhost:3000 | External API endpoint |
 | Database browser | http://localhost:3002 | Login with `SQLITE_WEB_PASSWORD` |
 
-> **Change the default admin password immediately** — Settings → Users → change password.
+> **Note:** Upon first login, you will be forced to change the default admin password for security reasons.
 
 ---
 
 ## First-Time Setup
 
 1. Log in at **http://localhost:3001** (`admin` / `admin123`)
-2. Go to **Settings → Users** → change your password
-3. Go to **Instances** → click **Add Instance**
-4. Scan the QR code with WhatsApp (Settings → Linked Devices → Link a Device)
-5. Once connected, go to **Groups** to find Group IDs or set Aliases
-6. Go to **Settings → API Keys** → generate a key for each external system
+2. You will be prompted to change your password immediately.
+3. Go to **Settings → Users** to manage users or optionally configure **Two-Factor Authentication (2FA)** by clicking the 2FA button next to your name and scanning the QR Code with Google Authenticator.
+4. Go to **Instances** → click **Add Instance**
+5. Scan the QR code with WhatsApp (Settings → Linked Devices → Link a Device)
+6. Once connected, go to **Groups** to find Group IDs or set Aliases
+7. Go to **Settings → API Keys** → generate a key for each external system
 
 ---
 
@@ -319,9 +320,10 @@ WhatsApp session credentials are stored separately in `sessions/<id>/` and persi
 ## Security Notes
 
 - Set strong values for `JWT_SECRET` and `SQLITE_WEB_PASSWORD` before deploying — use `openssl rand`
-- Change the default `admin` / `admin123` credentials immediately after first login
+- **Mandatory Password Change**: The system forces users to change default passwords before accessing the dashboard.
+- **Two-Factor Authentication (2FA)**: Time-based One-Time Password (TOTP) is supported and recommended for all admin accounts. Compatible with Google Authenticator, Authy, etc.
 - Passwords are bcrypt-hashed (cost 10), never stored in plaintext
-- JWT sessions expire after 8 hours
+- JWT sessions expire after 8 hours. Users are automatically logged out if their session is invalidated from the database.
 - Rate limiting: 100 requests/minute/IP on all non-health endpoints
 - `sessions/` is git-ignored — never commit session files
 - In production: firewall ports `3001` (admin UI) and `3002` (database browser) to internal network only
